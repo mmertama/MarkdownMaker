@@ -69,6 +69,8 @@
   * @eol
   * @raw + __&#x40;eol__, after &#x40;raw can join lines and then &#x40;eol is used to insert an explicit newline and end the &#x40;raw content.
   * @eol
+  * @raw + __&#x40;ignore__, The line is ignored from output.
+  * @eol
   *
   *  #### Examples
   * Using Style
@@ -84,10 +86,10 @@
   @eol
 ```
   *
-  * Using to declare a function
+  * @ignore Using to declare a function
   *
-  * @raw <code> template &#60;typename ...Args&#62;</br> /&lowast;&lowast;</br>  * @function tie </br>  * Apply list values to arguments </br>   * @param ParamList object to read from </br>  * @param list of out parameters to read values to  </br>  * </br>  * </br>  * Example: </br>  * &#96;&#96;&#96; </br> * stream.each&#60;Axq::ParamList&#62;([this](const Axq::ParamList&amp; pair){ </br>  * QString key; int count;</br>  * Axq::tie(pair, key, count);</br>  * print(&quot;\&quot;&quot;, key, &quot;\&quot; exists &quot;, count, &quot; times\n&quot;);</br>  *&#96;&#96;&#96;</br> &lowast;/</br> void tie(const ParamList&amp; list, Args&amp; ...args) {</br>  _getValue<0, Args...>(list, args...);</br> }
-  * @raw </code> </br>
+  * @ignore <code> template &#60;typename ...Args&#62;</br> /&lowast;&lowast;</br>  * @function tie </br>  * Apply list values to arguments </br>   * @param ParamList object to read from </br>  * @param list of out parameters to read values to  </br>  * </br>  * </br>  * Example: </br>  * &#96;&#96;&#96; </br> * stream.each&#60;Axq::ParamList&#62;([this](const Axq::ParamList&amp; pair){ </br>  * QString key; int count;</br>  * Axq::tie(pair, key, count);</br>  * print(&quot;\&quot;&quot;, key, &quot;\&quot; exists &quot;, count, &quot; times\n&quot;);</br>  *&#96;&#96;&#96;</br> &lowast;/</br> void tie(const ParamList&amp; list, Args&amp; ...args) {</br>  _getValue<0, Args...>(list, args...);</br> }
+  * @ignore </code> </br>
   * @eol
   * @eol
   *  See [AxqLib documentation](https://github.com/mmertama/AxqLib/blob/master/Axq.md)

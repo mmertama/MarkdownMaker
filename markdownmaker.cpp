@@ -77,6 +77,8 @@ bool SourceParser::parseLine(const QString& line) {
                     m_content[m_scopeStack.top()].append({Cmd::Add, "", value});
                 } else if(command == "eol") {
                     m_content[m_scopeStack.top()].append({Cmd::Add, "", "\\n"});
+                } else if(command == "ignore") {
+                   //ignore
                 } else {
                     m_content[m_scopeStack.top()].append({Cmd::Header, command, value});
                 }
