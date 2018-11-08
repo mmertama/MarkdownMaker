@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>marked.js</file>
+        <file>markdown.css</file>
+        <file>index.html</file>
+    </qresource>
+</RCC>
