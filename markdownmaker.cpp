@@ -9,6 +9,25 @@
 
 constexpr char DefaultStyle[] = "##### %1";
 
+static QString decode(const QString& line) {
+    QString decoded;
+    const QRegularExpression code(R"(@\{((?:x[0-9a-f]+)|(?:\d+))\})", QRegularExpression::CaseInsensitiveOption);
+    auto iterator = code.globalMatch(line);
+    int pos = 0;
+    while(iterator.hasNext()){
+        const auto match = iterator.next();
+        const auto start = match.capturedStart();
+        decoded += line.mid(pos, start - pos);
+        bool ok;
+        const auto value = match.captured(1);
+        decoded += QChar(value[0] == 'x' ? value.mid(1).toInt(&ok, 16) : value.toInt(&ok));
+        if(!ok) return "INVALID";
+        pos = match.capturedEnd();
+    }
+    decoded += line.mid(pos);
+    return decoded;
+}
+
 static QString removeAsterisk(const QString& line) {
     const QRegularExpression ast(R"(\s*\*\s*(.*))");
     const auto m = ast.match(line);
@@ -35,7 +54,8 @@ SourceParser::~SourceParser() {
 bool SourceParser::parseLine(const QString& line) {
     ++m_line;
     if(m_state != State::Out) {
-        const QRegularExpression example(R"(```)");
+        const QRegularExpression example1(R"(```)");
+        const QRegularExpression example2(R"(\~\~\~)");
         const QRegularExpression blockCommentEnd(R"(\*/)");
         const QRegularExpression meta(R"(\s*\*\s*@([a-z]+)\s*(.*)(\\n))");
         if(blockCommentEnd.match(line).hasMatch()) {
@@ -82,18 +102,25 @@ bool SourceParser::parseLine(const QString& line) {
                 } else {
                     m_content[m_scopeStack.top()].append({Cmd::Header, command, value});
                 }
-            } else if(example.match(line).hasMatch()) {
+            } else if(m_state != State::Example2 && example1.match(line).hasMatch()) {
                 if(m_state == State::In) {
-                    m_state = State::Example;
+                    m_state = State::Example1;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].append({Cmd::Add, "", "```\\n"});
+                m_content[m_scopeStack.top()].append({Cmd::Add, "", "```\\n"});  
+            } else if(m_state != State::Example1 && example2.match(line).hasMatch()) {
+                if(m_state == State::In) {
+                    m_state = State::Example2;
+                } else {
+                    m_state = State::In;
+                }
+                m_content[m_scopeStack.top()].append({Cmd::Add, "", "~~~\\n"});
             } else if(m_state == State::In) {
-                const auto ref = removeAsterisk(line);
+                const auto ref = decode(removeAsterisk(line));
                 m_content[m_scopeStack.top()].append({Cmd::Add, "", ref.toHtmlEscaped()});
-            } else if(m_state == State::Example) {
-                auto ref = removeAsterisk(line);
+            } else if(m_state == State::Example1 || m_state == State::Example2) {
+                auto ref = decode(removeAsterisk(line));
                 ref.replace("\\n", "");
                 ref.replace('\\', "\\\\");
                 ref.replace('"', "\\\"");

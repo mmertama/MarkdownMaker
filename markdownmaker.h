@@ -72,6 +72,10 @@
   * @raw + __&#x40;ignore__, The line is ignored from output.
   * @eol
   *
+  * #### Coded value
+  * * @raw + __&#x40{value}, MarkdownMaker replaces value with its Unicode character (Hexadecimal starts with 'x')
+  * @eol
+  *
   *  #### Examples
   * Using Style
 ```
@@ -86,14 +90,36 @@
   @eol
 ```
   *
-  * @ignore Using to declare a function
+  * Using to declare a function
   *
-  * @ignore <code> template &#60;typename ...Args&#62;</br> /&lowast;&lowast;</br>  * @function tie </br>  * Apply list values to arguments </br>   * @param ParamList object to read from </br>  * @param list of out parameters to read values to  </br>  * </br>  * </br>  * Example: </br>  * &#96;&#96;&#96; </br> * stream.each&#60;Axq::ParamList&#62;([this](const Axq::ParamList&amp; pair){ </br>  * QString key; int count;</br>  * Axq::tie(pair, key, count);</br>  * print(&quot;\&quot;&quot;, key, &quot;\&quot; exists &quot;, count, &quot; times\n&quot;);</br>  *&#96;&#96;&#96;</br> &lowast;/</br> void tie(const ParamList&amp; list, Args&amp; ...args) {</br>  _getValue<0, Args...>(list, args...);</br> }
-  * @ignore </code> </br>
-  * @eol
+  ~~~
+template <typename ...Args>
+/@{x2a}@{x2a}
+ @{x2a} @function tie
+ @{x2a} Apply list values to arguments
+ @{x2a} @param ParamList object to read from
+ @{x2a} @param list of out parameters to read values to
+ @{x2a}
+ @{x2a}
+ @{x2a} Example:
+ ```
+ stream.each<Axq::ParamList>([this](const Axq::ParamList& pair){
+    QString key; int count;
+    Axq::tie(pair, key, count);
+    print("\"", key, "\" exists ", count, " times\n");
+    ...
+ ```
+ @{x2a}
+ @{x2a}/
+void tie(const ParamList& list, Args& ...args) {
+    _getValue<0, Args...>(list, args...);
+}
+ ~~~
   * @eol
   *  See [AxqLib documentation](https://github.com/mmertama/AxqLib/blob/master/Axq.md)
-  * Axq is also used implementation of this utility.
+  *  ...and [its source](https://github.com/mmertama/AxqLib/blob/master/axq.h)
+  *  ...and [this source](https://github.com/mmertama/MarkdownMaker/blob/master/markdownmaker.h)
+  * , Axq is also used for implementation of this utility.
   */
 
 class Styles {
@@ -105,7 +131,7 @@ public:
 
 class SourceParser : public QObject {
     Q_OBJECT
-    enum class State {Out, In, Example};
+    enum class State {Out, In, Example1, Example2};
     enum class Cmd {Add, Toc, Header};
     using Link = std::tuple<QString, QString>;
 public:
