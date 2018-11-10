@@ -73,7 +73,7 @@
   * @eol
   *
   * #### Coded value
-  * * @raw + __&#x40{value}, MarkdownMaker replaces value with its Unicode character (Hexadecimal starts with 'x')
+  * * @raw + __&#x40;{`unicode-code`}__, MarkdownMaker replaces a given `unicode-code` with its Unicode character (Hexadecimal values start with 'x'). That let to use characters not otherwise allowed in C/C++ source files.
   * @eol
   *
   *  #### Examples

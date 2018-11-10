@@ -46,7 +46,7 @@ The section can include markdown language. There it is possible to use `code`,
 + __&#x40;ignore__, The line is ignored from output.
 
 #### Coded value
-+ __&#x40{value}, MarkdownMaker replaces value with its Unicode character (Hexadecimal starts with 'x')
++ __&#x40;{`unicode-code`}__, MarkdownMaker replaces a given `unicode-code` with its Unicode character (Hexadecimal values start with 'x'). That let to use characters not otherwise allowed in C/C++ source files.
 
 #### Examples
 Using Style

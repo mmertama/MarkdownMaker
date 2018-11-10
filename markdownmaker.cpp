@@ -64,7 +64,7 @@ bool SourceParser::parseLine(const QString& line) {
             const auto bm = meta.match(line);
             if(bm.hasMatch()) {
                 const auto command = bm.captured(1);
-                const auto value = bm.captured(2);
+                const auto value = decode(bm.captured(2));
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
                     m_scopes.append(value);
                     m_scopeStack.push(value);
