@@ -8,7 +8,7 @@ SHADOW_AXQ = $$replace(SHADOW, build-$$TARGET, build-Axq)
 SHADOW_AXQ = $$replace(SHADOW_AXQ, $$TARGET/builds, AxqLib/builds)
 SHADOW_AXQ = $${SHADOW_AXQ}/lib
 
-!exists($$SHADOW_AXQ):error(Axq is expected to be found next to this project)
+!exists($$SHADOW_AXQ):error(AxqLib is expected to be found next to this project)
 
 win32:CONFIG(release, debug|release): LIBS += -L$${SHADOW_AXQ}/release -lAxq
 else:win32:CONFIG(debug, debug|release): LIBS += -L$${SHADOW_AXQ}/debug -lAxq
