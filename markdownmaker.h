@@ -32,6 +32,9 @@
   * as a single output in input order. If input is a markdown file (*.md), that is added as-is.
   * If no files given a file open dialog is shown.
   *
+  *  #### Shortcuts
+  *  `Cmd/Ctrl+Q` enforces MarkdownMaker to quit without asking Save as dialog.
+  *
   * ### Annotations
   * #### Markdown field
   * @raw Markdown section starts with __/&lowast;&lowast;__ ( C comment with an extra asterisk).

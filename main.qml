@@ -12,6 +12,16 @@ Window {
     width: 640
     height: 480
     title: qsTr("Hello Axq")
+    property bool enforceQuit: false
+
+    Shortcut {
+        sequence: StandardKey.Quit
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            enforceQuit = true;
+            Qt.quit()
+        }
+    }
 
     Connections{
         target: Axq
@@ -25,7 +35,7 @@ Window {
     }
 
     onClosing: {
-        if(!markupMaker.hasOutput() && markupMaker.hasInput()){
+        if(!markupMaker.hasOutput() && markupMaker.hasInput() && !enforceQuit){
             close.accepted = false
             saveDialog.visible = true
         }

@@ -22,6 +22,9 @@ is *null* nothing is written and no dialog is shown.
 as a single output in input order. If input is a markdown file (*.md), that is added as-is.
 If no files given a file open dialog is shown.
 
+#### Shortcuts
+`Cmd/Ctrl+Q` enforces MarkdownMaker to quit without asking Save as dialog.
+
 ### Annotations
 #### Markdown field
 Markdown section starts with __/&lowast;&lowast;__ ( C comment with an extra asterisk).Section ends to __&lowast;/__ (C comment ends). If section line starts with a __*__, that is omitted.
@@ -52,7 +55,7 @@ The section can include markdown language. There it is possible to use `code`,
 Using Style
 ```
 ###### *Axq is published under GNU LESSER GENERAL PUBLIC LICENSE, Version 3*  
-###### *Copyright Markus Mertama 2018*, generated at Sat Nov 10 2018 
+###### *Copyright Markus Mertama 2018*, generated at Sun Nov 11 2018 
 _____  
 ```
 Using Raw
