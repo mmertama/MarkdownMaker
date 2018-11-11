@@ -5,7 +5,7 @@ CONFIG +=c++11
 SHADOW = $$shadowed($$PWD)
 
 SHADOW_AXQ = $$replace(SHADOW, build-$$TARGET, build-Axq)
-SHADOW_AXQ = $$replace(SHADOW_AXQ, $$TARGET/builds, axq/builds)
+SHADOW_AXQ = $$replace(SHADOW_AXQ, $$TARGET/builds, AxqLib/builds)
 SHADOW_AXQ = $${SHADOW_AXQ}/lib
 
 !exists($$SHADOW_AXQ):error(Axq is expected to be found next to this project)
@@ -17,10 +17,10 @@ else:macx: LIBS += -L$${SHADOW_AXQ} -lAxq
 else: error(Not defined)
 
 INCLUDEPATH += \
-            ../Axq/libs \
-            ../Axq
+            ../AxqLib/libs \
+            ../AxqLib
 
-DEPENDPATH += ../Axq/lib
+DEPENDPATH += ../AxqLib/lib
 
 win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $${SHADOW_AXQ}/release/libAxq.a
 else:win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $${SHADOW_AXQ}/debug/libAxq.a
