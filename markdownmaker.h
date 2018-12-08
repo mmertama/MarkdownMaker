@@ -24,13 +24,16 @@
   * differ e.g. from Github's interpretation of the document.
   *
   * #### Command line
-  * mdmaker <-q> <-o OUTFILE> <INFILES>
+  * @raw `mdmaker <-q> <-o OUTFILE> <INFILES>`
+  * @eol
+  * * **mdmaker** Since the executable may have been wrapped into bundle, the actual callable name may vary.
   * * -q , Quiet, no UI, suitable for toolchains.
   * * -o OUTPUT, Write output to given file, if not given, Save as dialog is shown upon exit. If OUTPUT
   * is *null* nothing is written and no dialog is shown.
   * * INFILES, One or more files that are scanned for markdown annotations. Multiple files are joined
   * as a single output in input order. If input is a markdown file (*.md), that is added as-is.
   * If no files given a file open dialog is shown.
+
   *
   *  #### Shortcuts
   *  `Cmd/Ctrl+Q` enforces MarkdownMaker to quit without asking Save as dialog.
@@ -149,7 +152,7 @@ signals:
     void completed();
 private:
     QString makeLink(const Link& lnk) const;
-    bool _fail(const QString& message, int line) const;
+    bool fail(const QString& message, int line) const;
 private:
     const QString m_sourceName;
     Styles& m_styles;
