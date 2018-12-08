@@ -1,6 +1,19 @@
-QT += quick webview
+QT += quick
 CONFIG += c++14
 DEFINES += QT_DEPRECATED_WARNINGS
+
+CONFIG+=webview
+
+!webengine:!webview: CONFIG += webview
+
+
+
+webview {
+    QT += webview
+    DEFINES += WEBVIEW
+} else {
+    QT += webengine
+}
 
 HEADERS += \
     markdownmaker.h
@@ -24,4 +37,11 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES += \
     index.html \
-    markdown.css
+    markdown.css \
+    releases/macdeploy.sh \
+    releases/linuxdeploy.sh \
+    html/marked.js \
+    html/darth.js \
+    html/darth.jpg \
+    html/markdown.css \
+    html/index.html

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<head>
+  <title>title</title>
+  <link rel="stylesheet" type="text/css" href="markdown.css"/>
+  <script src="marked.js" type="text/javascript" ></script>
+</head>
+<body>
+ <!-- xmp -->
+  <div id="placeholder">
+    Ctrl+Q to quit
+  </div>
+  <script  type="text/javascript">
+  var placeholder = document.getElementById('placeholder');
+  var updateText = function(text) {
+    placeholder.innerHTML = marked(text);
+  }
+  </script>
+</body>
+</html>
+

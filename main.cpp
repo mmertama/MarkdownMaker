@@ -2,18 +2,34 @@
 #include <QQmlApplicationEngine>
 #include <QFileInfo>
 #include <QQmlContext>
+
+#ifdef WEBVIEW
 #include <QtWebView/QtWebView>
+#else
+#include <QtWebEngine>
+#endif
+
 #include "axq.h"
 #include "markdownmaker.h"
 
+#include <QDebug>
+
 int main(int argc, char* argv[]) {
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication app(argc, argv);
-
-
-    QtWebView::initialize();
+    QCoreApplication::setOrganizationName("Markus Mertama");
 
     QQmlApplicationEngine engine;
     Axq::registerTypes(); //For QML
+
+    engine.rootContext()->setContextProperty("UseWebView",
+#ifdef WEBVIEW
+     true);
+     QtWebView::initialize();
+#else
+    false);
+    QtWebEngine::initialize();
+#endif
 
     QScopedPointer<MarkdownMaker> mm(new MarkdownMaker);
 
@@ -62,6 +78,8 @@ int main(int argc, char* argv[]) {
             mm->addSourceFile(file.absoluteFilePath());
         }
     }
+
+    qDebug() << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
     return app.exec();
 }

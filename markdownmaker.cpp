@@ -40,12 +40,20 @@ SourceParser::SourceParser(const QString& name, Styles& styles, QObject* parent)
     m_scopes.append("_root");
 }
 
-bool SourceParser::_fail(const QString& s, int line) const {
-    emit const_cast<SourceParser*>(this)->appendLine(QString("%1, %2 at %3 (ref:%4)").arg(s).arg(m_sourceName).arg(m_line).arg(line));
+bool SourceParser::fail(const QString& s, int line) const {
+    auto err = decode(QString("%1, %2 at %3 (ref:%4)").arg(s).arg(m_sourceName).arg(m_line).arg(line));
+    err.replace("\n", "");
+    err.replace("\r", "");
+    err.replace("\\n", "");
+    err.replace("\\r", "");
+    err.replace("\"", "'");
+    err.replace("\\", "");
+    qDebug() << err;
+    emit const_cast<SourceParser*>(this)->appendLine(err + "<br/>");
     return true;
 }
 
-#define S_ASSERT(x, s) if(!x && _fail(s, __LINE__)) return false;
+#define S_ASSERT(x, s) if(!x && fail(s, __LINE__)) return false;
 
 SourceParser::~SourceParser() {
 
