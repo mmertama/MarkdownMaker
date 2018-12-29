@@ -14,13 +14,15 @@ The generated markdown is optinally rendered, but please note that is only refer
 differ e.g. from Github's interpretation of the document.
 
 #### Command line
-mdmaker &lt;-q&gt; &lt;-o OUTFILE&gt; &lt;INFILES&gt;
+`mdmaker <-q> <-o OUTFILE> <INFILES>`
+* **mdmaker** Since the executable may have been wrapped into bundle, the actual callable name may vary.
 * -q , Quiet, no UI, suitable for toolchains.
 * -o OUTPUT, Write output to given file, if not given, Save as dialog is shown upon exit. If OUTPUT
 is *null* nothing is written and no dialog is shown.
 * INFILES, One or more files that are scanned for markdown annotations. Multiple files are joined
 as a single output in input order. If input is a markdown file (*.md), that is added as-is.
 If no files given a file open dialog is shown.
+
 
 #### Shortcuts
 `Cmd/Ctrl+Q` enforces MarkdownMaker to quit without asking Save as dialog.
@@ -55,7 +57,7 @@ The section can include markdown language. There it is possible to use `code`,
 Using Style
 ```
 ###### *Axq is published under GNU LESSER GENERAL PUBLIC LICENSE, Version 3*  
-###### *Copyright Markus Mertama 2018*, generated at Sun Nov 11 2018 
+###### *Copyright Markus Mertama 2018*, generated at Sun Dec 9 2018 
 _____  
 ```
 Using Raw

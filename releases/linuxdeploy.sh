@@ -15,7 +15,8 @@ then
 
 
     linuxdeployqt-continuous-x86_64.AppImage MarkdownMaker-x86_64.AppDir/usr/share/applications/MarkdownMaker.desktop -appimage -always-overwrite -qmldir=..  -extra-plugins=webview
-    ln -s /usr/lib/x86_64-linux-gnu/nss/libsoftokn3.so  MarkdownMaker-x86_64.AppDir/usr/lib/libsoftokn3.so
+    # ln -s /usr/lib/x86_64-linux-gnu/nss/libsoftokn3.so  MarkdownMaker-x86_64.AppDir/usr/lib/libsoftokn3.so
+	cp -s /usr/lib/x86_64-linux-gnu/nss/libsoftokn3.so  MarkdownMaker-x86_64.AppDir/usr/lib/libsoftokn3.so
     
     if [[ ! -f MarkdownMaker-x86_64.AppDir/usr/lib/libsoftokn3.so ]] ; then
     echo Warning MarkdownMaker-x86_64.AppDir/usr/lib/libsoftokn3.so does not exists, that may be an issue

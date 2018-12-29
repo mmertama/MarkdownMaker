@@ -249,6 +249,7 @@ void MarkdownMaker::addSourceFile(const QString& sourceFile) {
         m_content[""] += "cannot load source file:" + sourceFile;
     })
     .meta<QString, Axq::Stream::This>([parser](QString line, Axq::Stream s) {
+        line.replace("\r\n", "\n"); //DOS line endings
         if(!parser->parseLine(line.replace('\n', "\\n"))) {
             s.error("Parse error", -1, true);
         }
