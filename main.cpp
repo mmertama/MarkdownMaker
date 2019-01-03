@@ -2,6 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QFileInfo>
 #include <QQmlContext>
+#include <QLibraryInfo>
 
 #ifdef WEBVIEW
 #include <QtWebView/QtWebView>

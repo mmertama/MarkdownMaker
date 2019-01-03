@@ -76,19 +76,19 @@ bool SourceParser::parseLine(const QString& line) {
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
                     m_scopes.append(value);
                     m_scopeStack.push(value);
-                    m_content[m_scopeStack.top()].append({Cmd::Add, "", "---\\n"});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "---\\n"));
                 }
                 if(command == "class" || command == "namespace" || command == "typedef") {
-                    m_links.append({command, value});
-                    m_content[m_scopeStack.top()].append({Cmd::Header, command, value});
+                    m_links.append(std::make_tuple(command, value));
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
                 }
 
                 else if(command == "toc") {
-                    m_content[m_scopeStack.top()].append({Cmd::Toc, "", ""});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Toc, "", ""));
                 } else if(command == "date") {
-                    m_content[m_scopeStack.top()].append({Cmd::Header, command, QDate::currentDate().toString()});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, QDate::currentDate().toString()));
                 } else if(command == "scopeend") {
-                    m_content[m_scopeStack.top()].append({Cmd::Add, "", "---\\n"});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "---\\n"));
                     m_scopeStack.pop();
                 } else if(command == "style") {
                     auto sep = value.indexOf(' ');
@@ -99,16 +99,16 @@ bool SourceParser::parseLine(const QString& line) {
                     }
                 } else if(command == "function") {
                     S_ASSERT(!m_briefName, QString("Only one brief or function allowed: %1 ").arg(line));
-                    m_content[m_scopeStack.top()].append({Cmd::Header, command, value});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
                     m_briefName = & m_content[m_scopeStack.top()].last();
                 } else if(command == "raw") {
-                    m_content[m_scopeStack.top()].append({Cmd::Add, "", value});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", value));
                 } else if(command == "eol") {
-                    m_content[m_scopeStack.top()].append({Cmd::Add, "", "\\n"});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "\\n"));
                 } else if(command == "ignore") {
                    //ignore
                 } else {
-                    m_content[m_scopeStack.top()].append({Cmd::Header, command, value});
+                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
                 }
             } else if(m_state != State::Example2 && example1.match(line).hasMatch()) {
                 if(m_state == State::In) {
@@ -116,23 +116,23 @@ bool SourceParser::parseLine(const QString& line) {
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].append({Cmd::Add, "", "```\\n"});  
+                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "```\\n"));  
             } else if(m_state != State::Example1 && example2.match(line).hasMatch()) {
                 if(m_state == State::In) {
                     m_state = State::Example2;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].append({Cmd::Add, "", "~~~\\n"});
+                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "~~~\\n"));
             } else if(m_state == State::In) {
                 const auto ref = decode(removeAsterisk(line));
-                m_content[m_scopeStack.top()].append({Cmd::Add, "", ref.toHtmlEscaped()});
+                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", ref.toHtmlEscaped()));
             } else if(m_state == State::Example1 || m_state == State::Example2) {
                 auto ref = decode(removeAsterisk(line));
                 ref.replace("\\n", "");
                 ref.replace('\\', "\\\\");
                 ref.replace('"', "\\\"");
-                m_content[m_scopeStack.top()].append({Cmd::Add, "", ref + "  \\n"});
+                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", ref + "  \\n"));
             }
         }
     } else {
@@ -148,8 +148,8 @@ bool SourceParser::parseLine(const QString& line) {
                 S_ASSERT(fm.hasMatch(), QString("Cannot understand as a function %1").arg(line));
                 auto value = fm.captured(0).trimmed();
                 value.remove(QRegularExpression(R"(^\s*\w+_EXPORT)"));
-                *m_briefName = {Cmd::Header, std::get<1>(*m_briefName), value};
-                m_links.append({std::get<1>(*m_briefName), value});
+                *m_briefName = std::make_tuple(Cmd::Header, std::get<1>(*m_briefName), value);
+                m_links.append(std::make_tuple(std::get<1>(*m_briefName), value));
                 m_briefName = nullptr;
             }
         }
