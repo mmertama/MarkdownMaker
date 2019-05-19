@@ -6,7 +6,7 @@ is a simple markup language to write formatted documents, widely used e.g. in Gi
 MarkdownMaker is not a replacement of Doxygen or other document generators; MarkdownMaker
 purpose and approach is different: it generates markdown only annotated comments and
 ignores everything else. Therefore where Doxygen is better for generating comprehensive
-documentation of source code, MarkdownMaker adds generates only explicit documentation and
+documentation of source code, MarkdownMaker generates only explicit documentation and
 is therefore it is suitable for interface (API) and introductionary (README) documentation.
 Also, unlike those other generators, MarkdownMaker just generates markdown.
 
