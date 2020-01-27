@@ -11,3 +11,4 @@ releases/MarkdownMaker-x86_64.AppDir/usr/resources
 releases/MarkdownMaker-x86_64.AppDir/usr/share/doc
 releases/MarkdownMaker-x86_64.AppDir/usr/translations
 
+CMakeLists.txt.user

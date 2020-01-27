@@ -1,11 +1,12 @@
 #ifndef MARKUPMAKER_H
 #define MARKUPMAKER_H
 
-#include <QObject>
-#include <QHash>
-#include <QStack>
-#include <QMap>
-#include <QUrl>
+#include <string>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <algorithm>
+#include <stack>
 
 /**
   * ![wqe](https://avatars1.githubusercontent.com/u/7837709?s=400&v=4)
@@ -130,72 +131,74 @@ void tie(const ParamList& list, Args& ...args) {
 
 class Styles {
 public:
-    virtual void setStyle(const QString& name, const QString& style) = 0;
-    virtual QString style(const QString& name) const = 0;
+    virtual void setStyle(const std::string& name, const std::string& style) = 0;
+    virtual std::string style(const std::string& name) const = 0;
     virtual ~Styles() = default;
 };
 
-class SourceParser : public QObject {
-    Q_OBJECT
+class SourceParser  {
     enum class State {Out, In, Example1, Example2};
     enum class Cmd {Add, Toc, Header};
-    using Link = std::tuple<QString, QString>;
+    using Link = std::tuple<std::string, std::string>;
 public:
-    using Content = std::tuple<Cmd, QString, QString>;
+    using Content = std::tuple<Cmd, std::string, std::string>;
 public:
-    SourceParser(const QString& sourceName, Styles& styles, QObject* parent = nullptr);
+    SourceParser(const std::string& sourceName, Styles& styles);
     ~SourceParser();
-    bool parseLine(const QString& line);
+    bool parseLine(const std::string& line);
     void complete();
-signals:
-    void appendLine(const QString& str);
+
+    void appendLine(const std::string& str);
     void completed();
 private:
-    QString makeLink(const Link& lnk) const;
-    bool fail(const QString& message, int line) const;
+    std::string makeLink(const Link& lnk) const;
+    bool fail(const std::string& message, int line) const;
 private:
-    const QString m_sourceName;
+    const std::string m_sourceName;
     Styles& m_styles;
     State m_state = State::Out;
-    QMap<QString, QList<Content>> m_content;
-    QList<Link> m_links;
-    QStack<QString> m_scopeStack;
-    QList<QString> m_scopes;
+    std::map<std::string, std::vector<Content>> m_content;
+    std::vector<Link> m_links;
+    std::stack<std::string> m_scopeStack;
+    std::vector<std::string> m_scopes;
     Content* m_briefName = nullptr;
     int m_line = 0;
 };
 
-Q_DECLARE_METATYPE(SourceParser::Content);
 
-class MarkdownMaker : public QObject, public Styles {
-    Q_OBJECT
-    Q_PROPERTY(QString content READ content NOTIFY contentChanged)
+class MarkdownMaker : public Styles {
 public:
-    explicit MarkdownMaker(QObject* parent = nullptr);
-    void addMarkupFile(const QString& mdFile);
-    void addSourceFile(const QString& sourceFile);
-    void setOutput(const QString& out);
+    explicit MarkdownMaker();
+    void addMarkupFile(const std::string& mdFile);
+    void addSourceFile(const std::string& sourceFile);
+    void setOutput(const std::string& out);
     void addFooter();
-    Q_INVOKABLE bool hasOutput() const;
-    Q_INVOKABLE bool hasInput() const;
-    Q_INVOKABLE void setSourceFiles(const QList<QUrl>& files);
-    Q_INVOKABLE void setOutput(const QUrl& file);
-signals:
-    void appendLine(const QString& line);
+ //   bool hasOutput() const;
+ //   bool hasInput() const;
+ //   void setSourceFiles(const std::vector<std::string>& files);
+ //   void setOutput(const std::string& file);
+
+    void appendLine(const std::string& line);
     void contentChanged();
     void allMade();
     void showFileOpen();
-    void doCopy(const QString& target);
+    void doCopy(const std::string& target);
 public:
-    QString content() const;
-    void setStyle(const QString& name, const QString& style);
-    QString style(const QString& name) const;
+    std::string content() const;
+    void setStyle(const std::string& name, const std::string& style);
+    std::string style(const std::string& name) const;
 private:
-    QStringList m_files;
-    QHash<QString, QString> m_content;
-    QHash<QString, QString> m_styles;
+    std::vector<std::string> m_files;
+    std::unordered_map<std::string, std::string> m_content;
+    std::unordered_map<std::string, std::string> m_styles;
     int m_completed = 0;
     bool m_hasOutput = false;
 };
+
+std::string toLower(const std::string& s) {
+    std::string out;
+    std::transform(s.begin(), s.end(), std::back_inserter(out), [](auto c){return std::tolower(c);});
+    return out;
+}
 
 #endif // MARKUPMAKER_H

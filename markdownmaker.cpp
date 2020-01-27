@@ -1,200 +1,249 @@
-#include <QFile>
-#include <QRegularExpression>
-#include <QDate>
-#include <QTemporaryFile>
 #include "markdownmaker.h"
-#include "axq.h"
-
-#include <QDebug>
+#include <regex>
+#include <iostream>
+#include <chrono>
+#include <ctime>
+#include <fstream>
 
 constexpr char DefaultStyle[] = "##### %1";
 
-static QString decode(const QString& line) {
-    QString decoded;
-    const QRegularExpression code(R"(@\{((?:x[0-9a-f]+)|(?:\d+))\})", QRegularExpression::CaseInsensitiveOption);
-    auto iterator = code.globalMatch(line);
-    int pos = 0;
-    while(iterator.hasNext()){
-        const auto match = iterator.next();
-        const auto start = match.capturedStart();
-        decoded += line.mid(pos, start - pos);
-        bool ok;
-        const auto value = match.captured(1);
-        decoded += QChar(value[0] == 'x' ? value.mid(1).toInt(&ok, 16) : value.toInt(&ok));
-        if(!ok) return "INVALID";
-        pos = match.capturedEnd();
+static std::string dateNow() {
+     const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+     return std::ctime(&now);
+}
+
+static std::string replace(const std::string& where, const std::string& what, const std::string& how) {
+    std::regex re(what);
+    return std::regex_replace(where, re, how);
+}
+
+static std::string htmlEscaped(const std::string& str) {
+    const std::unordered_map<char, std::string> pairs {
+        {'"', "&quot;"},
+        {'&', "&amp;"},
+        {'\'', "&#39;"},
+        {'<', "&lt;"},
+        {'>', "&gt;"}};
+    std::string out = str;
+    for(const auto& [k, v] : pairs) {
+        int pos = 0;
+        std::string replaced;
+        for(;;) {
+            const auto index = out.find_first_of(k, pos);
+            if(index == std::string::npos)
+                break;
+            replaced += out.substr(pos, index - pos);
+            replaced += v;
+            pos = index + v.length();
+        }
+        replaced += out.substr(pos);
+        out = replaced;
     }
-    decoded += line.mid(pos);
+    return out;
+}
+
+static std::string trim(const std::string &cs) {
+    auto s  = cs;
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](auto ch) {
+        return !std::isspace(ch);}));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](auto ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
+}
+
+
+/*This is maybe a bit clumsy as a quick port from the logic used with QRegularExpression*/
+static std::string decode(const std::string& line) {
+    std::string decoded;
+    const std::regex code(R"(@\{((?:x[0-9a-f]+)|(?:\d+))\})", std::regex::icase);
+    std::smatch match;
+    int pos = 0;
+    while(std::regex_search(line, match, code)) {
+        const auto start = match.position();
+        decoded += line.substr(pos, start - pos);
+        const auto value = match[1].str();
+        try {
+        decoded += char(value.at(0) == 'x' ? std::stoi(value.substr(1), 0, 16) : std::stoi(value.substr(1)));
+        } catch(std::invalid_argument) {
+            return "INVALID";
+        }
+        pos = match.position() + match.length();
+    }
+    decoded += line.substr(pos);
     return decoded;
 }
 
-static QString removeAsterisk(const QString& line) {
-    const QRegularExpression ast(R"(\s*\*\s*(.*))");
-    const auto m = ast.match(line);
-    return m.hasMatch() ? m.captured(1) : line;
+static std::string removeAsterisk(const std::string& line) {
+    const std::regex ast(R"(\s*\*\s*(.*))");
+    std::smatch match;
+    return std::regex_match(line, match, ast) ?
+                match[1].str() : line;
 }
 
-SourceParser::SourceParser(const QString& name, Styles& styles, QObject* parent) : QObject(parent),
+SourceParser::SourceParser(const std::string& name, Styles& styles) :
     m_sourceName(name), m_styles(styles) {
     m_scopeStack.push("_root");
-    m_scopes.append("_root");
+    m_scopes.push_back("_root");
 }
 
-bool SourceParser::fail(const QString& s, int line) const {
-    auto err = decode(QString("%1, %2 at %3 (ref:%4)").arg(s).arg(m_sourceName).arg(m_line).arg(line));
-    err.replace("\n", "");
-    err.replace("\r", "");
-    err.replace("\\n", "");
-    err.replace("\\r", "");
-    err.replace("\"", "'");
-    err.replace("\\", "");
-    qDebug() << err;
-    emit const_cast<SourceParser*>(this)->appendLine(err + "<br/>");
+bool SourceParser::fail(const std::string& s, int line) const {
+    auto err = decode(s + ", " + m_sourceName + " at " +
+                      std::to_string(m_line) + " (ref:(" +
+                      std::to_string(line) + ")");
+
+    replace(err, "\n", "");
+    replace(err, "\r", "");
+    replace(err, "\\n", "");
+    replace(err, "\\r", "");
+    replace(err, "\"", "'");
+    replace(err, "\\", "");
+    std::cerr << err;
+    const_cast<SourceParser*>(this)->appendLine(err + "<br/>");
     return true;
 }
+
 
 #define S_ASSERT(x, s) if(!x && fail(s, __LINE__)) return false;
 
 SourceParser::~SourceParser() {
-
 }
 
-bool SourceParser::parseLine(const QString& line) {
+bool SourceParser::parseLine(const std::string& line) {
     ++m_line;
     if(m_state != State::Out) {
-        const QRegularExpression example1(R"(```)");
-        const QRegularExpression example2(R"(\~\~\~)");
-        const QRegularExpression blockCommentEnd(R"(\*/)");
-        const QRegularExpression meta(R"(\s*\*\s*@([a-z]+)\s*(.*)(\\n))");
-        if(blockCommentEnd.match(line).hasMatch()) {
+        const std::regex example1(R"(```)");
+        const std::regex example2(R"(\~\~\~)");
+        const std::regex blockCommentEnd(R"(\*/)");
+        const std::regex meta(R"(\s*\*\s*@([a-z]+)\s*(.*)(\\n))");
+        std::smatch match;
+        if(std::regex_match(line, match, blockCommentEnd)) {
             m_state = State::Out;
         } else {
-            const auto bm = meta.match(line);
-            if(bm.hasMatch()) {
-                const auto command = bm.captured(1);
-                const auto value = decode(bm.captured(2));
+            std::smatch bm;
+            if(std::regex_match(line, bm, meta)) {
+                const auto command = bm[1].str();
+                const auto value = decode(bm[2].str());
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
-                    m_scopes.append(value);
+                    m_scopes.push_back(value);
                     m_scopeStack.push(value);
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "---\\n"));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "---\\n"));
                 }
                 if(command == "class" || command == "namespace" || command == "typedef") {
-                    m_links.append(std::make_tuple(command, value));
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
+                    m_links.push_back(std::make_tuple(command, value));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
                 }
 
                 else if(command == "toc") {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Toc, "", ""));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Toc, "", ""));
                 } else if(command == "date") {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, QDate::currentDate().toString()));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, dateNow()));
                 } else if(command == "scopeend") {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "---\\n"));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "---\\n"));
                     m_scopeStack.pop();
                 } else if(command == "style") {
-                    auto sep = value.indexOf(' ');
+                    auto sep = value.find_first_of(' ');
                     if(sep > 0) {
-                        m_styles.setStyle(value.left(sep), value.mid(sep + 1));
+                        m_styles.setStyle(value.substr(0, sep), value.substr(sep + 1));
                     } else {
-                        qWarning() << "Invalid style" << value;
+                        std::cerr << "Invalid style" << value;
                     }
                 } else if(command == "function") {
-                    S_ASSERT(!m_briefName, QString("Only one brief or function allowed: %1 ").arg(line));
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
-                    m_briefName = & m_content[m_scopeStack.top()].last();
+                    S_ASSERT(!m_briefName, "Only one brief or function allowed:" + line);
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
+                    m_briefName = & m_content[m_scopeStack.top()].back();
                 } else if(command == "raw") {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", value));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", value));
                 } else if(command == "eol") {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "\\n"));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "\\n"));
                 } else if(command == "ignore") {
                    //ignore
                 } else {
-                    m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Header, command, value));
+                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
                 }
-            } else if(m_state != State::Example2 && example1.match(line).hasMatch()) {
+            } else if(m_state != State::Example2 && std::regex_match(line, match, example1)) {
                 if(m_state == State::In) {
                     m_state = State::Example1;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "```\\n"));  
-            } else if(m_state != State::Example1 && example2.match(line).hasMatch()) {
+                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "```\\n"));
+            } else if(m_state != State::Example1 && std::regex_match(line, match, example2)) {
                 if(m_state == State::In) {
                     m_state = State::Example2;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", "~~~\\n"));
+                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "~~~\\n"));
             } else if(m_state == State::In) {
                 const auto ref = decode(removeAsterisk(line));
-                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", ref.toHtmlEscaped()));
+                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", htmlEscaped(ref)));
             } else if(m_state == State::Example1 || m_state == State::Example2) {
                 auto ref = decode(removeAsterisk(line));
-                ref.replace("\\n", "");
-                ref.replace('\\', "\\\\");
-                ref.replace('"', "\\\"");
-                m_content[m_scopeStack.top()].append(std::make_tuple(Cmd::Add, "", ref + "  \\n"));
+                replace(ref, "\\n", "");
+                replace(ref, "\\", "\\\\");
+                replace(ref, "\"", "\\\"");
+                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", ref + "  \\n"));
             }
         }
     } else {
         if(m_briefName) {
             auto functionName = line;
-            functionName.replace(QRegularExpression(R"(<[^>])"), "<>");
-            functionName.replace(QRegularExpression(R"(\([^\)])"), "()");
-            const QRegularExpression function(R"((^\s*|\S+\s)+(?<name>[a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
-            const auto m = function.match(functionName);
-            if(m.hasMatch() && m.captured("name") == std::get<2>(*m_briefName)) {
-                const QRegularExpression functionTail(R"(^(.*\)($|\s?[a-zA-Z_]+)?))");
-                const auto fm = functionTail.match(line);
-                S_ASSERT(fm.hasMatch(), QString("Cannot understand as a function %1").arg(line));
-                auto value = fm.captured(0).trimmed();
-                value.remove(QRegularExpression(R"(^\s*\w+_EXPORT)"));
+            replace(functionName, R"(<[^>])", "<>");
+            replace(functionName, R"(\([^\)])", "()");
+            const std::regex function(R"((^\s*|\S+\s)+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
+            std::smatch match;
+            if(std::regex_match(functionName, match, function) && match[2] == std::get<2>(*m_briefName)) {
+                const std::regex functionTail(R"(^(.*\)($|\s?[a-zA-Z_]+)?))");
+                if(!std::regex_match(line, match, functionTail)) {
+                    S_ASSERT(false, "Cannot understand as a function:" +line);
+                }
+                auto value = trim(match[0]);
+                value = replace(value, R"(^\s*\w+_EXPORT)", "");
                 *m_briefName = std::make_tuple(Cmd::Header, std::get<1>(*m_briefName), value);
-                m_links.append(std::make_tuple(std::get<1>(*m_briefName), value));
+                m_links.push_back(std::make_tuple(std::get<1>(*m_briefName), value));
                 m_briefName = nullptr;
             }
         }
-        const QRegularExpression mdCommentStart(R"(/\*\*)");
-        if(mdCommentStart.match(line).hasMatch()) {
+        const std::regex mdCommentStart(R"(/\*\*)");
+        std::smatch match;
+        if(std::regex_match(line, match, mdCommentStart)) {
             m_state = State::In;
-            S_ASSERT(!m_briefName, QString("function not found \\\"%1\\\"").arg(std::get<2>(*m_briefName)));
+            S_ASSERT(!m_briefName, "function not found \\\"" + std::get<2>(*m_briefName) + "\\\"");
         }
     }
     return true;
 }
 
 
-QString SourceParser::makeLink(const Link& link) const {
-    return "#" + std::get<1>(link).toLower().replace(QRegularExpression("[<>]"), "").replace(QRegularExpression(R"(\W+)"), "-");
+std::string SourceParser::makeLink(const Link& link) const {
+    return "#" + replace(replace(toLower(std::get<1>(link)), "[<>]", ""), R"(\W+)", "-");
 }
 
 void SourceParser::complete() {
-    Axq::from(m_scopes).
-    each<QString>([this](const QString & scope) {
+    for(const auto scope : m_scopes) {
         for(const auto& line :  m_content[scope]) { //we cannot be async here as this has append in seq
             const auto cmd = std::get<0>(line);
             switch(cmd) {
             case Cmd::Add:
-                emit appendLine(std::get<2>(line));
+                appendLine(std::get<2>(line));
                 break;
             case Cmd::Toc:
                 for(const auto& link : m_links) {
                     const auto uri = makeLink(link);
-                    emit appendLine("* [" + std::get<1>(link) + " ](" +  uri + ")" + "\\n");
+                    appendLine("* [" + std::get<1>(link) + " ](" +  uri + ")" + "\\n");
                 }
                 break;
             case Cmd::Header:
-                emit appendLine(QString(m_styles.style(std::get<1>(line)) + " \\n").arg(std::get<2>(line)));
+                appendLine(replace(m_styles.style(std::get<1>(line)) + " \\n", "%1", std::get<2>(line)));
                 break;
             }
         }
-    })
-    .onCompleted([this]() {
-        emit completed();
-    });
+    }
+    completed();
 }
 
-
-MarkdownMaker::MarkdownMaker(QObject* parent) : QObject(parent) {
+MarkdownMaker::MarkdownMaker() {
     setStyle("namespace", "### %1");
     setStyle("class", "#### %1");
     setStyle("param", "###### *Param:* %1");
@@ -202,40 +251,35 @@ MarkdownMaker::MarkdownMaker(QObject* parent) : QObject(parent) {
     setStyle("templateparam", "###### *Template arg:* %1");
     setStyle("brief", "###### %1");
     setStyle("date", "###### %1");
-    QObject::connect(this, &MarkdownMaker::contentChanged, this, [this]() {
-        ++m_completed;
-        if(m_completed == 0) {
-            emit appendLine("###### Generated by MarkdownMaker, (c) Markus Mertama 2018 \\n");
-            emit contentChanged();
-            emit allMade();
-        }
-    }, Qt::QueuedConnection);
 }
 
-void MarkdownMaker::addMarkupFile(const QString& mdFile) {
-    QFile* f = new QFile(mdFile);
-    --m_completed;
-    Axq::read(f)
-    .map<QString, QString>([](QString s) {
-        s.replace('\n', "\\n");
-        return s;
-    })
-    .each<QString>([this, mdFile](const QString & s) {
-        m_content[mdFile] += s.toHtmlEscaped();
-    })
-    .onError<QString>([this, mdFile](const QString&, int) {
-        m_content[""] += "cannot load markup file:" + mdFile;
-        emit contentChanged();
-    })
-    .onCompleted([this]() {
-        emit contentChanged();
-    });
-    if(f->isOpen()) {
-        m_files.append(mdFile);
+void MarkdownMaker::contentChanged() {
+    ++m_completed;
+    if(m_completed == 0) {
+        appendLine("###### Generated by MarkdownMaker, (c) Markus Mertama 2018 \\n");
+        contentChanged();
+        allMade();
     }
 }
 
-void MarkdownMaker::addSourceFile(const QString& sourceFile) {
+void MarkdownMaker::addMarkupFile(const std::string& mdFile) {
+    std::ifstream f(mdFile);
+    std::string line;
+    --m_completed;
+    if(f.is_open()) {
+        m_files.push_back(mdFile);
+    } else {
+        m_content[""] += "cannot load markup file:" + mdFile;
+        contentChanged();
+    }
+    while (std::getline(f, line)) {
+        line  = replace(line, "\n", "\\n");
+        m_content[mdFile] += htmlEscaped(line);
+    }
+    contentChanged();
+}
+
+void MarkdownMaker::addSourceFile(const std::string& sourceFile) {
     auto file = new QFile(sourceFile);
     --m_completed;
     auto parser = new SourceParser(sourceFile, *this);
@@ -275,19 +319,19 @@ void MarkdownMaker::addSourceFile(const QString& sourceFile) {
     }
 }
 
-QString MarkdownMaker::content() const {
-    QString data;
+std::string MarkdownMaker::content() const {
+    std::string data;
     for(const auto& names : m_files) {
         data += m_content[names];
     }
     return data;
 }
 
-void MarkdownMaker::setStyle(const QString& name, const QString& style) {
+void MarkdownMaker::setStyle(const std::string& name, const std::string& style) {
     m_styles[name] = style;
 }
 
-QString MarkdownMaker::style(const QString& name) const {
+std::string MarkdownMaker::style(const std::string& name) const {
     if(!m_styles.contains(name)) {
         return DefaultStyle;
     } else {
@@ -303,7 +347,7 @@ bool MarkdownMaker::hasInput() const {
     return !m_content.isEmpty();
 }
 
-void MarkdownMaker::setOutput(const QString& out) {
+void MarkdownMaker::setOutput(const std::string& out) {
     if(out == "null") {
         m_hasOutput = true; //Not really
         return;
@@ -332,18 +376,18 @@ void MarkdownMaker::setOutput(const QString& out) {
     }
 }
 
-void MarkdownMaker::setSourceFiles(const QList<QUrl>& files) {
+void MarkdownMaker::setSourceFiles(const std::vector<std::string>& files) {
     m_content.clear();
     for(const auto& f : files){
         addSourceFile(f.toLocalFile());
     }
 }
 
-void MarkdownMaker::setOutput(const QUrl& file) {
-    if(!m_hasOutput)
-        doCopy(file.toLocalFile());
-    else {
-            qCritical() << "output already set";
+void MarkdownMaker::setOutput(const std::string& file) {
+    if(!m_hasOutput) {
+        doCopy(file);
+    } else {
+            std::cerr << "output already set";
         }
 }
 
