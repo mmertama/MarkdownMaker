@@ -136,6 +136,12 @@ public:
     virtual ~Styles() = default;
 };
 
+
+class ContentManager : public Styles {
+  public:
+    std::function<void (const std::string& line)> appendLine = nullptr;
+};
+
 class SourceParser  {
     enum class State {Out, In, Example1, Example2};
     enum class Cmd {Add, Toc, Header};
@@ -143,19 +149,19 @@ class SourceParser  {
 public:
     using Content = std::tuple<Cmd, std::string, std::string>;
 public:
-    SourceParser(const std::string& sourceName, Styles& styles);
+    SourceParser(const std::string& sourceName, ContentManager& styles);
     ~SourceParser();
     bool parseLine(const std::string& line);
     void complete();
 
-    void appendLine(const std::string& str);
-    void completed();
+    void appendLine(const std::string& str) {m_contentManager.appendLine(str);}
+ //   void completed();
 private:
     std::string makeLink(const Link& lnk) const;
     bool fail(const std::string& message, int line) const;
 private:
     const std::string m_sourceName;
-    Styles& m_styles;
+    ContentManager& m_contentManager;
     State m_state = State::Out;
     std::map<std::string, std::vector<Content>> m_content;
     std::vector<Link> m_links;
@@ -166,7 +172,7 @@ private:
 };
 
 
-class MarkdownMaker : public Styles {
+class MarkdownMaker : public ContentManager {
 public:
     explicit MarkdownMaker();
     void addMarkupFile(const std::string& mdFile);
@@ -178,9 +184,9 @@ public:
  //   void setSourceFiles(const std::vector<std::string>& files);
  //   void setOutput(const std::string& file);
 
-    void appendLine(const std::string& line);
-    void contentChanged();
-    void allMade();
+//    void appendLine(const std::string& line);
+//    void allMade();
+    void contentChanged() {std::for_each(contentChangedArray.begin(), contentChangedArray.end(), [](const auto& f){f();});}
     void showFileOpen();
     void doCopy(const std::string& target);
 public:
@@ -193,9 +199,10 @@ private:
     std::unordered_map<std::string, std::string> m_styles;
     int m_completed = 0;
     bool m_hasOutput = false;
+    std::vector<std::function<void ()>> contentChangedArray;
 };
 
-std::string toLower(const std::string& s) {
+inline std::string toLower(const std::string& s) {
     std::string out;
     std::transform(s.begin(), s.end(), std::back_inserter(out), [](auto c){return std::tolower(c);});
     return out;
