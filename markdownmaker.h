@@ -153,9 +153,7 @@ public:
     ~SourceParser();
     bool parseLine(const std::string& line);
     void complete();
-
     void appendLine(const std::string& str) {m_contentManager.appendLine(str);}
- //   void completed();
 private:
     std::string makeLink(const Link& lnk) const;
     bool fail(const std::string& message, int line) const;
@@ -179,8 +177,8 @@ public:
     void addSourceFile(const std::string& sourceFile);
     void setOutput(const std::string& out);
     void addFooter();
- //   bool hasOutput() const;
- //   bool hasInput() const;
+    bool hasOutput() const;
+    bool hasInput() const;
  //   void setSourceFiles(const std::vector<std::string>& files);
  //   void setOutput(const std::string& file);
 

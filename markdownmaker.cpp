@@ -17,6 +17,21 @@ static std::string replace(const std::string& where, const std::string& what, co
     return std::regex_replace(where, re, how);
 }
 
+static std::string replace(const std::string& where, const char what, const std::string& how) {
+    int pos = 0;
+    std::string replaced;
+    for(;;) {
+        const auto index = where.find_first_of(what, pos);
+        if(index == std::string::npos)
+            break;
+        replaced += where.substr(pos, index - pos);
+        replaced += how;
+        pos = index + 1;
+    }
+    replaced += where.substr(pos);
+    return replaced;
+}
+
 static std::string htmlEscaped(const std::string& str) {
     const std::unordered_map<char, std::string> pairs {
         {'"', "&quot;"},
@@ -26,18 +41,7 @@ static std::string htmlEscaped(const std::string& str) {
         {'>', "&gt;"}};
     std::string out = str;
     for(const auto& [k, v] : pairs) {
-        int pos = 0;
-        std::string replaced;
-        for(;;) {
-            const auto index = out.find_first_of(k, pos);
-            if(index == std::string::npos)
-                break;
-            replaced += out.substr(pos, index - pos);
-            replaced += v;
-            pos = index + v.length();
-        }
-        replaced += out.substr(pos);
-        out = replaced;
+        out = replace(out, k, v);
     }
     return out;
 }
@@ -57,9 +61,10 @@ static std::string trim(const std::string &cs) {
 static std::string decode(const std::string& line) {
     std::string decoded;
     const std::regex code(R"(@\{((?:x[0-9a-f]+)|(?:\d+))\})", std::regex::icase);
-    std::smatch match;
+    auto it = std::sregex_iterator(line.begin(), line.end(), code);
     int pos = 0;
-    while(std::regex_search(line, match, code)) {
+    for(;it != std::sregex_iterator(); ++it) {
+        const auto match = *it;
         const auto start = match.position();
         decoded += line.substr(pos, start - pos);
         const auto value = match[1].str();
@@ -92,12 +97,12 @@ bool SourceParser::fail(const std::string& s, int line) const {
                       std::to_string(m_line) + " (ref:(" +
                       std::to_string(line) + ")");
 
-    replace(err, "\n", "");
-    replace(err, "\r", "");
+    replace(err, '\n', "");
+    replace(err, '\r', "");
     replace(err, "\\n", "");
     replace(err, "\\r", "");
-    replace(err, "\"", "'");
-    replace(err, "\\", "");
+    replace(err, '"', "'");
+    replace(err, '\\', "");
     std::cerr << err;
     const_cast<SourceParser*>(this)->appendLine(err + "<br/>");
     return true;
@@ -180,9 +185,9 @@ bool SourceParser::parseLine(const std::string& line) {
                 m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", htmlEscaped(ref)));
             } else if(m_state == State::Example1 || m_state == State::Example2) {
                 auto ref = decode(removeAsterisk(line));
-                replace(ref, "\\n", "");
-                replace(ref, "\\", "\\\\");
-                replace(ref, "\"", "\\\"");
+                replace(ref, '\n', "");
+                replace(ref, '\\', "\\\\");
+                replace(ref, '"', "\\\"");
                 m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", ref + "  \\n"));
             }
         }
@@ -275,7 +280,7 @@ void MarkdownMaker::addMarkupFile(const std::string& mdFile) {
         contentChanged();
     }
     while (std::getline(f, line)) {
-        line  = replace(line, "\n", "\\n");
+        line  = replace(line, '\n', "\\n");
         m_content[mdFile] += htmlEscaped(line);
     }
     contentChanged();
@@ -293,12 +298,12 @@ void MarkdownMaker::addSourceFile(const std::string& sourceFile) {
 
     if(!file.is_open()){
         m_content[""] += "cannot load source file:" + sourceFile;
-        std::cerr << "Cannot open:" << sourceFile;
+        std::cerr << "Cannot open file:" << sourceFile << std::endl;
     }
     std::string line;
     while (std::getline(file, line)) {
-        replace(line, "\r\n", "\n"); //DOS line endings
-        if(!parser->parseLine(replace(line, "\n", "\\n"))) {
+        replace(line, '\r', ""); //DOS line endings
+        if(!parser->parseLine(replace(line, '\n', "\\n"))) {
             std::cerr << "Parse error:" << line;
             break;
         }
@@ -327,14 +332,14 @@ std::string MarkdownMaker::style(const std::string& name) const {
         return it->second;
     }
 }
-/*
+
 bool MarkdownMaker::hasOutput() const {
     return m_hasOutput;
 }
 
 bool MarkdownMaker::hasInput() const {
-    return !m_content.isEmpty();
-}*/
+    return !m_content.empty();
+}
 
 void MarkdownMaker::setOutput(const std::string& out) {
     if(out == "null") {
