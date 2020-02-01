@@ -17,6 +17,12 @@ static std::string replace(const std::string& where, const std::string& what, co
     return std::regex_replace(where, re, how);
 }
 
+static void replace(std::string& where, const std::string& what, const std::string& how) {
+   std::string out = replace(static_cast<const std::string&>(where), what, how);
+   where = out;
+}
+
+
 static std::string replace(const std::string& where, const char what, const std::string& how) {
     int pos = 0;
     std::string replaced;
@@ -32,6 +38,11 @@ static std::string replace(const std::string& where, const char what, const std:
     return replaced;
 }
 
+static void replace(std::string& where, const char what, const std::string& how) {
+   std::string out = replace(static_cast<const std::string&>(where), what, how);
+   where = out;
+}
+
 static std::string htmlEscaped(const std::string& str) {
     const std::unordered_map<char, std::string> pairs {
         {'"', "&quot;"},
@@ -41,7 +52,7 @@ static std::string htmlEscaped(const std::string& str) {
         {'>', "&gt;"}};
     std::string out = str;
     for(const auto& [k, v] : pairs) {
-        out = replace(out, k, v);
+        replace(out, k, v);
     }
     return out;
 }
@@ -55,7 +66,6 @@ static std::string trim(const std::string &cs) {
     }).base(), s.end());
     return s;
 }
-
 
 /*This is maybe a bit clumsy as a quick port from the logic used with QRegularExpression*/
 static std::string decode(const std::string& line) {
@@ -82,7 +92,7 @@ static std::string decode(const std::string& line) {
 static std::string removeAsterisk(const std::string& line) {
     const std::regex ast(R"(\s*\*\s*(.*))");
     std::smatch match;
-    return std::regex_match(line, match, ast) ?
+    return std::regex_search(line, match, ast) ?
                 match[1].str() : line;
 }
 
@@ -108,7 +118,6 @@ bool SourceParser::fail(const std::string& s, int line) const {
     return true;
 }
 
-
 #define S_ASSERT(x, s) if(!x && fail(s, __LINE__)) return false;
 
 SourceParser::~SourceParser() {
@@ -122,11 +131,11 @@ bool SourceParser::parseLine(const std::string& line) {
         const std::regex blockCommentEnd(R"(\*/)");
         const std::regex meta(R"(\s*\*\s*@([a-z]+)\s*(.*)(\\n))");
         std::smatch match;
-        if(std::regex_match(line, match, blockCommentEnd)) {
+        if(std::regex_search(line, match, blockCommentEnd)) {
             m_state = State::Out;
         } else {
             std::smatch bm;
-            if(std::regex_match(line, bm, meta)) {
+            if(std::regex_search(line, bm, meta)) {
                 const auto command = bm[1].str();
                 const auto value = decode(bm[2].str());
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
@@ -166,14 +175,14 @@ bool SourceParser::parseLine(const std::string& line) {
                 } else {
                     m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
                 }
-            } else if(m_state != State::Example2 && std::regex_match(line, match, example1)) {
+            } else if(m_state != State::Example2 && std::regex_search(line, match, example1)) {
                 if(m_state == State::In) {
                     m_state = State::Example1;
                 } else {
                     m_state = State::In;
                 }
                 m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "```\\n"));
-            } else if(m_state != State::Example1 && std::regex_match(line, match, example2)) {
+            } else if(m_state != State::Example1 && std::regex_search(line, match, example2)) {
                 if(m_state == State::In) {
                     m_state = State::Example2;
                 } else {
@@ -198,13 +207,13 @@ bool SourceParser::parseLine(const std::string& line) {
             replace(functionName, R"(\([^\)])", "()");
             const std::regex function(R"((^\s*|\S+\s)+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
             std::smatch match;
-            if(std::regex_match(functionName, match, function) && match[2] == std::get<2>(*m_briefName)) {
+            if(std::regex_search(functionName, match, function) && match[2] == std::get<2>(*m_briefName)) {
                 const std::regex functionTail(R"(^(.*\)($|\s?[a-zA-Z_]+)?))");
-                if(!std::regex_match(line, match, functionTail)) {
+                if(!std::regex_search(line, match, functionTail)) {
                     S_ASSERT(false, "Cannot understand as a function:" +line);
                 }
                 auto value = trim(match[0]);
-                value = replace(value, R"(^\s*\w+_EXPORT)", "");
+                replace(value, R"(^\s*\w+_EXPORT)", "");
                 *m_briefName = std::make_tuple(Cmd::Header, std::get<1>(*m_briefName), value);
                 m_links.push_back(std::make_tuple(std::get<1>(*m_briefName), value));
                 m_briefName = nullptr;
@@ -212,14 +221,13 @@ bool SourceParser::parseLine(const std::string& line) {
         }
         const std::regex mdCommentStart(R"(/\*\*)");
         std::smatch match;
-        if(std::regex_match(line, match, mdCommentStart)) {
+        if(std::regex_search(line, match, mdCommentStart)) {
             m_state = State::In;
             S_ASSERT(!m_briefName, "function not found \\\"" + std::get<2>(*m_briefName) + "\\\"");
         }
     }
     return true;
 }
-
 
 std::string SourceParser::makeLink(const Link& link) const {
     return "#" + replace(replace(toLower(std::get<1>(link)), "[<>]", ""), R"(\W+)", "-");
@@ -280,8 +288,8 @@ void MarkdownMaker::addMarkupFile(const std::string& mdFile) {
         contentChanged();
     }
     while (std::getline(f, line)) {
-        line  = replace(line, '\n', "\\n");
-        m_content[mdFile] += htmlEscaped(line);
+        //line  = replace(line, '\n', "\\n");
+        m_content[mdFile] += htmlEscaped(line + "\\n");
     }
     contentChanged();
 }
@@ -292,19 +300,22 @@ void MarkdownMaker::addSourceFile(const std::string& sourceFile) {
     --m_completed;
     auto parser = new SourceParser(sourceFile, *this);
     //connect(parser, &SourceParser::appendLine, this, &MarkdownMaker::appendLine);
-    appendLine = [this, sourceFile](const std::string& append) {
+    appendLineArray.push_back([this, sourceFile](const std::string& append) {
         m_content[sourceFile] += append;
-    };
+    });
 
-    if(!file.is_open()){
+    if(file.is_open()) {
+      m_files.push_back(sourceFile);
+    } else {
         m_content[""] += "cannot load source file:" + sourceFile;
         std::cerr << "Cannot open file:" << sourceFile << std::endl;
     }
     std::string line;
     while (std::getline(file, line)) {
-        replace(line, '\r', ""); //DOS line endings
-        if(!parser->parseLine(replace(line, '\n', "\\n"))) {
-            std::cerr << "Parse error:" << line;
+       // replace(line, '\r', ""); //DOS line endings
+      //  if(!parser->parseLine(replace(line, '\n', "\\n"))) {
+          if(!parser->parseLine(line + "\\n")) {
+            std::cerr << "Parse error:" << line << std::endl;
             break;
         }
     }
@@ -333,35 +344,38 @@ std::string MarkdownMaker::style(const std::string& name) const {
     }
 }
 
-bool MarkdownMaker::hasOutput() const {
+/*bool MarkdownMaker::hasOutput() const {
     return m_hasOutput;
 }
-
+*/
 bool MarkdownMaker::hasInput() const {
     return !m_content.empty();
 }
 
 void MarkdownMaker::setOutput(const std::string& out) {
-    if(out == "null") {
-        m_hasOutput = true; //Not really
-        return;
-    }
+    if(out.empty()) {
+        appendLineArray.push_back( [](std::string append) {
+            append = replace(static_cast<const std::string>(append), R"(\\n)", "") + "\n";
+            replace(append, R"(\\(.))", "$1");
+            std::cout << append;
+        });
+    } else {
     auto f = std::make_shared<std::ofstream>(out);
     if(f->is_open()) {
-        appendLine = [f](std::string append) {
-            replace(append, "\\n", "\n");
-            replace(append, R"(\\(.))", "\\1");
+        appendLineArray.push_back([f](std::string append) {
+            append = replace(static_cast<const std::string>(append), R"(\\n)", "") + "\n";
+            replace(append, R"(\\(.))", "$1");
             *f << append;
-        };
-
+        });
         contentChangedArray.push_back([f]() {
             std::flush(*f);
         });
 
         m_hasOutput = true;
 
-    } else {
-        m_content[""] += "cannot open output:" + out;
+        } else {
+            std::cerr << "Cannot open output:" << out << std::endl;
+        }
     }
 }
 

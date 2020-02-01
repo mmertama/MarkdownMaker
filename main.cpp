@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
         if(arg.front() == '-') {
             auto p = arg.substr(1);
             if(p == "o" && i < argc - 1) {
-                mm.setOutput(argv[i + 1]);
+                //mm.setOutput(argv[i + 1]);
             }
             if(p == "q") {
                 isQuiet = true;
@@ -32,9 +32,9 @@ int main(int argc, char* argv[]) {
 
 
 
-    if(!mm.hasOutput()){
+  //  if(!mm.hasOutput()){
         mm.setOutput("");
-    }
+ //   }
 
     for(const auto& f : files) {
         const auto fname = absoluteFilePath(f);
@@ -49,9 +49,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-
-        std::cout << mm.content() << std::endl;
-std::cout << "done" << std::endl;
-
+  //  std::cout << mm.content() << std::endl;
     return 0;
 }

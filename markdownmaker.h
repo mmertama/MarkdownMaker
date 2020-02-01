@@ -139,7 +139,8 @@ public:
 
 class ContentManager : public Styles {
   public:
-    std::function<void (const std::string& line)> appendLine = nullptr;
+    void appendLine(const std::string& line) {std::for_each(appendLineArray.begin(), appendLineArray.end(), [&line](const auto& f){f(line);});}
+    std::vector<std::function<void (const std::string& line)>> appendLineArray;
 };
 
 class SourceParser  {
@@ -175,18 +176,18 @@ public:
     explicit MarkdownMaker();
     void addMarkupFile(const std::string& mdFile);
     void addSourceFile(const std::string& sourceFile);
-    void setOutput(const std::string& out);
+//    void setOutput(const std::string& out);
     void addFooter();
-    bool hasOutput() const;
+//    bool hasOutput() const;
     bool hasInput() const;
  //   void setSourceFiles(const std::vector<std::string>& files);
- //   void setOutput(const std::string& file);
+    void setOutput(const std::string& file);
 
 //    void appendLine(const std::string& line);
 //    void allMade();
     void contentChanged() {std::for_each(contentChangedArray.begin(), contentChangedArray.end(), [](const auto& f){f();});}
-    void showFileOpen();
-    void doCopy(const std::string& target);
+ //   void showFileOpen();
+  //  void doCopy(const std::string& target);
 public:
     std::string content() const;
     void setStyle(const std::string& name, const std::string& style);
