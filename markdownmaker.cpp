@@ -103,7 +103,7 @@ SourceParser::SourceParser(const std::string& name, ContentManager& contentManag
 }
 
 bool SourceParser::fail(const std::string& s, int line) const {
-    auto err = decode(s + ", " + m_sourceName + " at " +
+    auto err = decode(s + ", " + replace(m_sourceName, '\\', "/") + " at " +
                       std::to_string(m_line) + " (ref:(" +
                       std::to_string(line) + ")");
 
@@ -213,7 +213,7 @@ bool SourceParser::parseLine(const std::string& line) {
                     S_ASSERT(false, "Cannot understand as a function:" +line);
                 }
                 auto value = trim(match[0]);
-                replace(value, R"(^\s*\w+_EXPORT)", "");
+                replace(value, R"(^\s*\w+[_EXPORT|_EX])", "");
                 *m_briefName = std::make_tuple(Cmd::Header, std::get<1>(*m_briefName), value);
                 m_links.push_back(std::make_tuple(std::get<1>(*m_briefName), value));
                 m_briefName = nullptr;
@@ -344,10 +344,10 @@ std::string MarkdownMaker::style(const std::string& name) const {
     }
 }
 
-/*bool MarkdownMaker::hasOutput() const {
+bool MarkdownMaker::hasOutput() const {
     return m_hasOutput;
 }
-*/
+
 bool MarkdownMaker::hasInput() const {
     return !m_content.empty();
 }

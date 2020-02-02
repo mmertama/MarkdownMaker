@@ -8,6 +8,10 @@ endif()
 
 add_executable(${PROJECT_NAME}
     markdownmaker.h
-	main.cpp
+    main.cpp
     markdownmaker.cpp
-	)
+    )
+
+if(NOT WIN32)
+    install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+endif()

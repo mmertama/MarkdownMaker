@@ -178,7 +178,7 @@ public:
     void addSourceFile(const std::string& sourceFile);
 //    void setOutput(const std::string& out);
     void addFooter();
-//    bool hasOutput() const;
+    bool hasOutput() const;
     bool hasInput() const;
  //   void setSourceFiles(const std::vector<std::string>& files);
     void setOutput(const std::string& file);

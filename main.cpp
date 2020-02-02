@@ -8,33 +8,30 @@ int main(int argc, char* argv[]) {
    MarkdownMaker mm;
 
    std::vector<std::string> files;
-   bool isQuiet = false;
 
     for(auto i = 1 ; i < argc; i++) {
         std::string arg(argv[i]);
         if(arg.front() == '-') {
             auto p = arg.substr(1);
             if(p == "o" && i < argc - 1) {
-                //mm.setOutput(argv[i + 1]);
+                mm.setOutput(argv[i + 1]);
             }
-            if(p == "q") {
-                isQuiet = true;
-            }
+
         } else {
             files.push_back(arg);
         }
     }
 
     if(files.size() == 0) {
-        std::cerr << "<-q> <-o outfile> infiles" << std::endl;
+        std::cerr << "<-o outfile> infiles" << std::endl;
         return -1;
     }
 
 
 
-  //  if(!mm.hasOutput()){
+    if(!mm.hasOutput()){
         mm.setOutput("");
- //   }
+    }
 
     for(const auto& f : files) {
         const auto fname = absoluteFilePath(f);
