@@ -145,6 +145,7 @@ bool SourceParser::parseLine(const std::string& line) {
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
                     m_scopes.push_back(value);
                     m_scopeStack.push(value);
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                 }
                 if(command == "class" || command == "namespace" || command == "typedef") {
@@ -157,6 +158,7 @@ bool SourceParser::parseLine(const std::string& line) {
                 } else if(command == "date") {
                     m_content[m_scopeStack.top()].push_back({Cmd::Header, command, dateNow()});
                 } else if(command == "scopeend") {
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                     m_scopeStack.pop();
                 } else if(command == "style") {
@@ -170,7 +172,9 @@ bool SourceParser::parseLine(const std::string& line) {
                     S_ASSERT(!m_briefName, "Only one brief or function allowed:" + line);
                     S_ASSERT(m_scopeStack.size() > 0, "No top");
                     m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
-                    *m_briefName = {m_scopeStack.top(), static_cast<unsigned>(m_content[m_scopeStack.top()].size()) - 1};
+                    m_briefName = std::make_optional<std::pair<std::string, unsigned>>({m_scopeStack.top(),
+                                                      static_cast<unsigned>(
+                                                      m_content[m_scopeStack.top()].size()) - 1});
                 } else if(command == "raw") {
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", value});
                 } else if(command == "eol") {
@@ -219,7 +223,7 @@ bool SourceParser::parseLine(const std::string& line) {
                     S_ASSERT(false, "Cannot understand as a function:" +line);
                 }
                 auto value = trim(match[0]);
-                replace(value, R"(^\s*\w+[_EXPORT|_EX])", "");
+                replace(value, R"(^\s*\w+[_EXPORT])", "");
                 content = {Cmd::Header, content.name, value};
                 m_links.push_back(std::make_tuple(content.name, value));
                 m_briefName = std::nullopt;
