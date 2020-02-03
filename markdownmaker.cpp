@@ -5,6 +5,10 @@
 #include <ctime>
 #include <fstream>
 
+#ifdef WINDOWS_OS
+#include <windows.h>
+#endif
+
 constexpr char DefaultStyle[] = "##### %1";
 
 static std::string dateNow() {
@@ -118,7 +122,7 @@ bool SourceParser::fail(const std::string& s, int line) const {
     return true;
 }
 
-#define S_ASSERT(x, s) if(!x && fail(s, __LINE__)) return false;
+#define S_ASSERT(x, s) if(!(x) && fail(s, __LINE__)) return false;
 
 SourceParser::~SourceParser() {
 }
@@ -141,19 +145,19 @@ bool SourceParser::parseLine(const std::string& line) {
                 if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
                     m_scopes.push_back(value);
                     m_scopeStack.push(value);
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "---\\n"));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                 }
                 if(command == "class" || command == "namespace" || command == "typedef") {
                     m_links.push_back(std::make_tuple(command, value));
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
                 }
 
                 else if(command == "toc") {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Toc, "", ""));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Toc, "", ""});
                 } else if(command == "date") {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, dateNow()));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, dateNow()});
                 } else if(command == "scopeend") {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "---\\n"));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                     m_scopeStack.pop();
                 } else if(command == "style") {
                     auto sep = value.find_first_of(' ');
@@ -164,16 +168,17 @@ bool SourceParser::parseLine(const std::string& line) {
                     }
                 } else if(command == "function") {
                     S_ASSERT(!m_briefName, "Only one brief or function allowed:" + line);
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
-                    m_briefName = & m_content[m_scopeStack.top()].back();
+                    S_ASSERT(m_scopeStack.size() > 0, "No top");
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
+                    *m_briefName = {m_scopeStack.top(), static_cast<unsigned>(m_content[m_scopeStack.top()].size()) - 1};
                 } else if(command == "raw") {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", value));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", value});
                 } else if(command == "eol") {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "\\n"));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
                 } else if(command == "ignore") {
                    //ignore
                 } else {
-                    m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Header, command, value));
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
                 }
             } else if(m_state != State::Example2 && std::regex_search(line, match, example1)) {
                 if(m_state == State::In) {
@@ -181,23 +186,23 @@ bool SourceParser::parseLine(const std::string& line) {
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "```\\n"));
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "```\\n"});
             } else if(m_state != State::Example1 && std::regex_search(line, match, example2)) {
                 if(m_state == State::In) {
                     m_state = State::Example2;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", "~~~\\n"));
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "~~~\\n"});
             } else if(m_state == State::In) {
                 const auto ref = decode(removeAsterisk(line));
-                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", htmlEscaped(ref)));
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", htmlEscaped(ref)});
             } else if(m_state == State::Example1 || m_state == State::Example2) {
                 auto ref = decode(removeAsterisk(line));
                 replace(ref, '\n', "");
                 replace(ref, '\\', "\\\\");
                 replace(ref, '"', "\\\"");
-                m_content[m_scopeStack.top()].push_back(std::make_tuple(Cmd::Add, "", ref + "  \\n"));
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", ref + "  \\n"});
             }
         }
     } else {
@@ -207,23 +212,24 @@ bool SourceParser::parseLine(const std::string& line) {
             replace(functionName, R"(\([^\)])", "()");
             const std::regex function(R"((^\s*|\S+\s)+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
             std::smatch match;
-            if(std::regex_search(functionName, match, function) && match[2] == std::get<2>(*m_briefName)) {
+            Content& content = m_content[m_briefName->first][m_briefName->second];
+            if(std::regex_search(functionName, match, function) && match[2] == content.value) {
                 const std::regex functionTail(R"(^(.*\)($|\s?[a-zA-Z_]+)?))");
                 if(!std::regex_search(line, match, functionTail)) {
                     S_ASSERT(false, "Cannot understand as a function:" +line);
                 }
                 auto value = trim(match[0]);
                 replace(value, R"(^\s*\w+[_EXPORT|_EX])", "");
-                *m_briefName = std::make_tuple(Cmd::Header, std::get<1>(*m_briefName), value);
-                m_links.push_back(std::make_tuple(std::get<1>(*m_briefName), value));
-                m_briefName = nullptr;
+                content = {Cmd::Header, content.name, value};
+                m_links.push_back(std::make_tuple(content.name, value));
+                m_briefName = std::nullopt;
             }
         }
         const std::regex mdCommentStart(R"(/\*\*)");
         std::smatch match;
         if(std::regex_search(line, match, mdCommentStart)) {
             m_state = State::In;
-            S_ASSERT(!m_briefName, "function not found \\\"" + std::get<2>(*m_briefName) + "\\\"");
+            S_ASSERT(!m_briefName, "function not found \\\"" +m_content[m_briefName->first][m_briefName->second].value + "\\\"");
         }
     }
     return true;
@@ -236,10 +242,9 @@ std::string SourceParser::makeLink(const Link& link) const {
 void SourceParser::complete() {
     for(const auto scope : m_scopes) {
         for(const auto& line :  m_content[scope]) { //we cannot be async here as this has append in seq
-            const auto cmd = std::get<0>(line);
-            switch(cmd) {
+            switch(line.cmd) {
             case Cmd::Add:
-                appendLine(std::get<2>(line));
+                appendLine(line.value);
                 break;
             case Cmd::Toc:
                 for(const auto& link : m_links) {
@@ -248,7 +253,7 @@ void SourceParser::complete() {
                 }
                 break;
             case Cmd::Header:
-                appendLine(replace(m_contentManager.style(std::get<1>(line)) + " \\n", "%1", std::get<2>(line)));
+                appendLine(replace(m_contentManager.style(line.name) + " \\n", "%1", line.value));
                 break;
             }
         }
@@ -269,7 +274,7 @@ MarkdownMaker::MarkdownMaker() {
         ++m_completed;
         if(m_completed == 0) {
             appendLine("###### Generated by MarkdownMaker, (c) Markus Mertama 2018 \\n");
-            contentChanged();
+        //    contentChanged();
         //    allMade();
         }
     });
@@ -278,57 +283,62 @@ MarkdownMaker::MarkdownMaker() {
 
 
 void MarkdownMaker::addMarkupFile(const std::string& mdFile) {
-    std::ifstream f(mdFile);
-    std::string line;
     --m_completed;
-    if(f.is_open()) {
-        m_files.push_back(mdFile);
-    } else {
-        m_content[""] += "cannot load markup file:" + mdFile;
+    m_files.push_back({mdFile, [this, mdFile]() {
+        std::ifstream f(mdFile);
+        if(f.is_open()) {
+            std::string line;
+            while (std::getline(f, line)) {
+                //line  = replace(line, '\n', "\\n");
+                m_content[mdFile] += htmlEscaped(line + "\\n");
+            }
+        } else
+             m_content[""] += "cannot load markup file:" + mdFile;
         contentChanged();
-    }
-    while (std::getline(f, line)) {
-        //line  = replace(line, '\n', "\\n");
-        m_content[mdFile] += htmlEscaped(line + "\\n");
-    }
-    contentChanged();
+        }});
 }
 
 
 void MarkdownMaker::addSourceFile(const std::string& sourceFile) {
-    std::ifstream file(sourceFile);
+
     --m_completed;
-    auto parser = new SourceParser(sourceFile, *this);
     //connect(parser, &SourceParser::appendLine, this, &MarkdownMaker::appendLine);
     appendLineArray.push_back([this, sourceFile](const std::string& append) {
         m_content[sourceFile] += append;
     });
 
-    if(file.is_open()) {
-      m_files.push_back(sourceFile);
-    } else {
-        m_content[""] += "cannot load source file:" + sourceFile;
-        std::cerr << "Cannot open file:" << sourceFile << std::endl;
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-       // replace(line, '\r', ""); //DOS line endings
-      //  if(!parser->parseLine(replace(line, '\n', "\\n"))) {
-          if(!parser->parseLine(line + "\\n")) {
-            std::cerr << "Parse error:" << line << std::endl;
-            break;
-        }
-    }
-    parser->complete();
-    contentChanged();
+        m_files.push_back({sourceFile, [this, sourceFile]() {
+            std::ifstream file(sourceFile);
+            if(file.is_open()) {
+                SourceParser parser(sourceFile, *this);
+                std::string line;
+                while (std::getline(file, line)) {
+               // replace(line, '\r', ""); //DOS line endings
+              //  if(!parser->parseLine(replace(line, '\n', "\\n"))) {
+                  if(!parser.parseLine(line + "\\n")) {
+                    std::cerr << "Parse error:" << line << std::endl;
+                    break;
+                  }
+                }
+                parser.complete();
+            } else {
+                    m_content[""] += "cannot load source file:" + sourceFile;
+                    std::cerr << "Cannot open file:" << sourceFile << std::endl;
+                }
+            contentChanged();
+            }});
 }
 
 std::string MarkdownMaker::content() const {
     std::string data;
-    for(const auto& names : m_files) {
-        data += m_content.at(names);
+    for(const auto& file : m_files) {
+        data += m_content.at(file.first);
     }
     return data;
+}
+
+void MarkdownMaker::execute() {
+    std::for_each(m_files.begin(), m_files.end(), [](const auto& f){f.second();});
 }
 
 void MarkdownMaker::setStyle(const std::string& name, const std::string& style) {

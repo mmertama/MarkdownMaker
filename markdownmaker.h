@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <algorithm>
 #include <stack>
+#include <functional>
+#include <optional>
 
 /**
   * ![wqe](https://avatars1.githubusercontent.com/u/7837709?s=400&v=4)
@@ -148,7 +150,11 @@ class SourceParser  {
     enum class Cmd {Add, Toc, Header};
     using Link = std::tuple<std::string, std::string>;
 public:
-    using Content = std::tuple<Cmd, std::string, std::string>;
+    struct Content {
+        Cmd cmd;
+        std::string name;
+        std::string value;
+    };
 public:
     SourceParser(const std::string& sourceName, ContentManager& styles);
     ~SourceParser();
@@ -166,7 +172,7 @@ private:
     std::vector<Link> m_links;
     std::stack<std::string> m_scopeStack;
     std::vector<std::string> m_scopes;
-    Content* m_briefName = nullptr;
+    std::optional<std::pair<std::string, unsigned>> m_briefName;
     int m_line = 0;
 };
 
@@ -188,12 +194,13 @@ public:
     void contentChanged() {std::for_each(contentChangedArray.begin(), contentChangedArray.end(), [](const auto& f){f();});}
  //   void showFileOpen();
   //  void doCopy(const std::string& target);
+    void execute();
 public:
     std::string content() const;
     void setStyle(const std::string& name, const std::string& style);
     std::string style(const std::string& name) const;
 private:
-    std::vector<std::string> m_files;
+    std::vector<std::pair<std::string, std::function<void()>>> m_files;
     std::unordered_map<std::string, std::string> m_content;
     std::unordered_map<std::string, std::string> m_styles;
     int m_completed = 0;

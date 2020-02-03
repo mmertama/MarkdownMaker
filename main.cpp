@@ -46,6 +46,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    mm.execute();
+
   //  std::cout << mm.content() << std::endl;
     return 0;
 }
