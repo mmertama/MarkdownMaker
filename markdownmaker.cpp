@@ -11,6 +11,10 @@
 
 constexpr char DefaultStyle[] = "##### %1";
 
+static bool isScope(const std::string& command) {
+    return command == "scope" || command == "class" || command == "namespace" || command == "struct";
+}
+
 static std::string dateNow() {
      const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
      return std::ctime(&now);
@@ -26,6 +30,21 @@ static void replace(std::string& where, const std::string& what, const std::stri
    where = out;
 }
 
+static std::string join(const std::stack<std::string>& stack) {
+    auto copy = stack;
+    std::string s;
+    while(!copy.empty()) {
+        const auto v = copy.top();
+        if(v == "_root")
+            break;
+        if(!s.empty())
+            s.insert(0, v + "::");
+        else
+            s = v;
+          copy.pop();
+    }
+    return s;
+}
 
 static std::string replace(const std::string& where, const char what, const std::string& how) {
     int pos = 0;
@@ -142,15 +161,17 @@ bool SourceParser::parseLine(const std::string& line) {
             if(std::regex_search(line, bm, meta)) {
                 const auto command = bm[1].str();
                 const auto value = decode(bm[2].str());
-                if(command == "scope" || command == "class" || command == "namespace" || command == "struct") {
+
+                if(isScope(command)) {
                     m_scopes.push_back(value);
                     m_scopeStack.push(value);
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                 }
+
                 if(command == "class" || command == "namespace" || command == "typedef") {
-                    m_links.push_back(std::make_tuple(command, value));
-                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
+                    m_links.push_back({command, value, m_line});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, join(m_scopeStack)});
                 }
 
                 else if(command == "toc") {
@@ -161,6 +182,7 @@ bool SourceParser::parseLine(const std::string& line) {
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
                     m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
                     m_scopeStack.pop();
+                    m_links.push_back({"scopeend", "", m_line});
                 } else if(command == "style") {
                     auto sep = value.find_first_of(' ');
                     if(sep > 0) {
@@ -184,6 +206,11 @@ bool SourceParser::parseLine(const std::string& line) {
                 } else {
                     m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
                 }
+
+                if(isScope(command)) {
+                    m_links.push_back({command, "", m_line});
+                }
+
             } else if(m_state != State::Example2 && std::regex_search(line, match, example1)) {
                 if(m_state == State::In) {
                     m_state = State::Example1;
@@ -225,7 +252,7 @@ bool SourceParser::parseLine(const std::string& line) {
                 auto value = trim(match[0]);
                 replace(value, R"(^\s*\w+[_EXPORT])", "");
                 content = {Cmd::Header, content.name, value};
-                m_links.push_back(std::make_tuple(content.name, value));
+                m_links.push_back({content.name, value, m_line});
                 m_briefName = std::nullopt;
             }
         }
@@ -240,20 +267,40 @@ bool SourceParser::parseLine(const std::string& line) {
 }
 
 std::string SourceParser::makeLink(const Link& link) const {
-    return "#" + replace(replace(toLower(std::get<1>(link)), "[<>]", ""), R"(\W+)", "-");
+    return "#" + replace(replace(toLower(link.uri), "[<>]", ""), R"(\W+)", "-");
 }
 
 void SourceParser::complete() {
-    for(const auto scope : m_scopes) {
+    for(const auto& scope : m_scopes) {
         for(const auto& line :  m_content[scope]) { //we cannot be async here as this has append in seq
             switch(line.cmd) {
             case Cmd::Add:
                 appendLine(line.value);
                 break;
-            case Cmd::Toc:
+            case Cmd::Toc: {
+                int scopeDepth = 0;
                 for(const auto& link : m_links) {
+                    if(link.name == "scopeend") {
+                        --scopeDepth;
+                        continue;
+                    }
+                    else if(link.uri == "") {
+                        ++scopeDepth;
+                        continue;
+                    }
+                    if(scopeDepth < 0) {
+                        fail("Negative scope", link.line);
+                        break;
+                    }
                     const auto uri = makeLink(link);
-                    appendLine("* [" + std::get<1>(link) + " ](" +  uri + ")" + "\\n");
+                    const std::string pre = scopeDepth > 0 ? std::string(2 * scopeDepth, ' ') + '*' : "*";
+                    const std::string name = isScope(link.name) ? " " + link.name + " " : " ";
+                    appendLine(pre + " [" + name + link.uri + " ](" +  uri + ")" + "\\n");
+                }
+                if(scopeDepth != 0) {
+                    fail("Unbalanced scope (0 != " + std::to_string(scopeDepth) + ")", -1);
+                    break;
+                }
                 }
                 break;
             case Cmd::Header:
@@ -277,7 +324,7 @@ MarkdownMaker::MarkdownMaker() {
     contentChangedArray.push_back([this](){
         ++m_completed;
         if(m_completed == 0) {
-            appendLine("###### Generated by MarkdownMaker, (c) Markus Mertama 2018 \\n");
+            appendLine("###### Generated by MarkdownMaker, (c) Markus Mertama 2020 \\n");
         //    contentChanged();
         //    allMade();
         }

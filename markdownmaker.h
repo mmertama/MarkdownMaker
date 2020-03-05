@@ -148,7 +148,11 @@ class ContentManager : public Styles {
 class SourceParser  {
     enum class State {Out, In, Example1, Example2};
     enum class Cmd {Add, Toc, Header};
-    using Link = std::tuple<std::string, std::string>;
+    struct Link {
+        std::string name;
+        std::string uri;
+        int line;
+    };
 public:
     struct Content {
         Cmd cmd;
