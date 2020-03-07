@@ -158,6 +158,7 @@ public:
         Cmd cmd;
         std::string name;
         std::string value;
+        std::string  uri;
     };
 public:
     SourceParser(const std::string& sourceName, ContentManager& styles);
@@ -166,7 +167,6 @@ public:
     void complete();
     void appendLine(const std::string& str) {m_contentManager.appendLine(str);}
 private:
-    std::string makeLink(const Link& lnk) const;
     bool fail(const std::string& message, int line) const;
 private:
     const std::string m_sourceName;

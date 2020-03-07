@@ -15,6 +15,22 @@ static bool isScope(const std::string& command) {
     return command == "scope" || command == "class" || command == "namespace" || command == "struct";
 }
 
+
+static std::string htmlEscaped(const std::string& str) {
+    std::string out;
+    for(auto b : str) {
+        switch (b) {
+        case '<': out += "&lt;"; break;
+        case '>': out += "&gt;"; break;
+        case '&': out += "&amp;"; break;
+        case '"': out += "&quot;"; break;
+        case '\'': out+=  "&#39;"; break;
+        default: out += b;
+        }
+    }
+    return out;
+}
+
 static std::string dateNow() {
      const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
      return std::ctime(&now);
@@ -47,7 +63,7 @@ static std::string join(const std::stack<std::string>& stack) {
 }
 
 static std::string replace(const std::string& where, const char what, const std::string& how) {
-    int pos = 0;
+    auto pos = 0U;
     std::string replaced;
     for(;;) {
         const auto index = where.find_first_of(what, pos);
@@ -66,6 +82,7 @@ static void replace(std::string& where, const char what, const std::string& how)
    where = out;
 }
 
+/*
 static std::string htmlEscaped(const std::string& str) {
     const std::unordered_map<char, std::string> pairs {
         {'"', "&quot;"},
@@ -79,6 +96,7 @@ static std::string htmlEscaped(const std::string& str) {
     }
     return out;
 }
+*/
 
 static std::string trim(const std::string &cs) {
     auto s  = cs;
@@ -90,12 +108,17 @@ static std::string trim(const std::string &cs) {
     return s;
 }
 
+static std::string makeLink(const std::string& uri)  {
+    return replace(trim(replace(replace(toLower(trim(uri)), R"((&lt;)|(&gt;)|(&amp;)|(&quot;))", ""), R"([^\w ]+)", "")), R"(\s+)", "-");
+}
+
+
 /*This is maybe a bit clumsy as a quick port from the logic used with QRegularExpression*/
 static std::string decode(const std::string& line) {
     std::string decoded;
     const std::regex code(R"(@\{((?:x[0-9a-f]+)|(?:\d+))\})", std::regex::icase);
     auto it = std::sregex_iterator(line.begin(), line.end(), code);
-    int pos = 0;
+    auto pos = 0U;
     for(;it != std::sregex_iterator(); ++it) {
         const auto match = *it;
         const auto start = match.position();
@@ -165,22 +188,22 @@ bool SourceParser::parseLine(const std::string& line) {
                 if(isScope(command)) {
                     m_scopes.push_back(value);
                     m_scopeStack.push(value);
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n", ""});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n", ""});
                 }
 
                 if(command == "class" || command == "namespace" || command == "typedef") {
                     m_links.push_back({command, value, m_line});
-                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, join(m_scopeStack)});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, join(m_scopeStack), value});
                 }
 
                 else if(command == "toc") {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Toc, "", ""});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Toc, "", "", ""});
                 } else if(command == "date") {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, dateNow()});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, dateNow(), ""});
                 } else if(command == "scopeend") {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n"});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n", ""});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "---\\n", ""});
                     m_scopeStack.pop();
                     m_links.push_back({"scopeend", "", m_line});
                 } else if(command == "style") {
@@ -198,13 +221,13 @@ bool SourceParser::parseLine(const std::string& line) {
                                                       static_cast<unsigned>(
                                                       m_content[m_scopeStack.top()].size()) - 1});
                 } else if(command == "raw") {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", value});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", value, ""});
                 } else if(command == "eol") {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n"});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "\\n", ""});
                 } else if(command == "ignore") {
                    //ignore
                 } else {
-                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value});
+                    m_content[m_scopeStack.top()].push_back({Cmd::Header, command, value, ""});
                 }
 
                 if(isScope(command)) {
@@ -217,23 +240,23 @@ bool SourceParser::parseLine(const std::string& line) {
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "```\\n"});
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "```\\n", ""});
             } else if(m_state != State::Example1 && std::regex_search(line, match, example2)) {
                 if(m_state == State::In) {
                     m_state = State::Example2;
                 } else {
                     m_state = State::In;
                 }
-                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "~~~\\n"});
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", "~~~\\n", ""});
             } else if(m_state == State::In) {
                 const auto ref = decode(removeAsterisk(line));
-                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", htmlEscaped(ref)});
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", htmlEscaped(ref), ""});
             } else if(m_state == State::Example1 || m_state == State::Example2) {
                 auto ref = decode(removeAsterisk(line));
                 replace(ref, '\n', "");
                 replace(ref, '\\', "\\\\");
                 replace(ref, '"', "\\\"");
-                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", ref + "  \\n"});
+                m_content[m_scopeStack.top()].push_back({Cmd::Add, "", ref + "  \\n", ""});
             }
         }
     } else {
@@ -247,11 +270,12 @@ bool SourceParser::parseLine(const std::string& line) {
             if(std::regex_search(functionName, match, function) && match[2] == content.value) {
                 const std::regex functionTail(R"(^(.*\)($|\s?[a-zA-Z_]+)?))");
                 if(!std::regex_search(line, match, functionTail)) {
-                    S_ASSERT(false, "Cannot understand as a function:" +line);
+                    S_ASSERT(false, "Cannot understand as a function:" +line)
                 }
-                auto value = trim(match[0]);
-                replace(value, R"(^\s*\w+[_EXPORT])", "");
-                content = {Cmd::Header, content.name, value};
+                const auto v = trim(match[0]);
+                const auto value = htmlEscaped(replace(v, R"(^\s*\w+[_EXPORT])", ""));
+                const auto link = makeLink(value);
+                content = {Cmd::Header, content.name, value, link};
                 m_links.push_back({content.name, value, m_line});
                 m_briefName = std::nullopt;
             }
@@ -260,15 +284,12 @@ bool SourceParser::parseLine(const std::string& line) {
         std::smatch match;
         if(std::regex_search(line, match, mdCommentStart)) {
             m_state = State::In;
-            S_ASSERT(!m_briefName, "function not found \\\"" +m_content[m_briefName->first][m_briefName->second].value + "\\\"");
+            S_ASSERT(!m_briefName, "function not found \\\"" + m_content[m_briefName->first][m_briefName->second].value + "\\\"")
         }
     }
     return true;
 }
 
-std::string SourceParser::makeLink(const Link& link) const {
-    return "#" + replace(replace(toLower(link.uri), "[<>]", ""), R"(\W+)", "-");
-}
 
 void SourceParser::complete() {
     for(const auto& scope : m_scopes) {
@@ -292,10 +313,10 @@ void SourceParser::complete() {
                         fail("Negative scope", link.line);
                         break;
                     }
-                    const auto uri = makeLink(link);
+                    const auto uri = makeLink(link.uri);
                     const std::string pre = scopeDepth > 0 ? std::string(2 * scopeDepth, ' ') + '*' : "*";
                     const std::string name = isScope(link.name) ? " " + link.name + " " : " ";
-                    appendLine(pre + " [" + name + link.uri + " ](" +  uri + ")" + "\\n");
+                    appendLine(pre + " [" + name + link.uri + " ](#" +  uri + ")" + "\\n");
                 }
                 if(scopeDepth != 0) {
                     fail("Unbalanced scope (0 != " + std::to_string(scopeDepth) + ")", -1);
@@ -303,9 +324,12 @@ void SourceParser::complete() {
                 }
                 }
                 break;
-            case Cmd::Header:
+            case Cmd::Header: {
+                if(!line.uri.empty())
+                    appendLine("<a id=\"" + line.uri + "\"></a>");
                 appendLine(replace(m_contentManager.style(line.name) + " \\n", "%1", line.value));
                 break;
+            }
             }
         }
     }
