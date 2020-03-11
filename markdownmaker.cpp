@@ -264,7 +264,7 @@ bool SourceParser::parseLine(const std::string& line) {
             auto functionName = line;
             replace(functionName, R"(<[^>])", "<>");
             replace(functionName, R"(\([^\)])", "()");
-            const std::regex function(R"((^\s*|\S+\s)+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
+            const std::regex function(R"((^\s*|[a-zA-Z0-9_<>*&:,]+\s)+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|<)");
             std::smatch match;
             Content& content = m_content[m_briefName->first][m_briefName->second];
             if(std::regex_search(functionName, match, function) && match[2] == content.value) {
@@ -284,7 +284,8 @@ bool SourceParser::parseLine(const std::string& line) {
         std::smatch match;
         if(std::regex_search(line, match, mdCommentStart)) {
             m_state = State::In;
-            S_ASSERT(!m_briefName, "function not found \\\"" + m_content[m_briefName->first][m_briefName->second].value + "\\\"")
+            S_ASSERT(!m_briefName, "function not found \\\""
+                     + m_content[m_briefName->first][m_briefName->second].value + "\\\"")
         }
     }
     return true;
