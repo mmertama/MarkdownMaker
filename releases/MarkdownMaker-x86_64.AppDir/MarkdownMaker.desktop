@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=MarkdownMaker
-Comment=Markdown Generator, Markus Mertama
-Exec=mdmaker
-Icon=MarkdownMaker
-Categories=Development;
-Name[en_US]=MarkdownMaker.desktop
-
