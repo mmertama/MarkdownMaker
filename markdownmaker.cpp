@@ -273,7 +273,7 @@ bool SourceParser::parseLine(const std::string& line) {
                     S_ASSERT(false, "Cannot understand as a function:" +line)
                 }
                 const auto v = trim(match[0]);
-                const auto value = htmlEscaped(replace(v, R"(^\s*\w+[_EXPORT])", ""));
+                const auto value = htmlEscaped(replace(v, R"(^\s*\w+(_EXPORT))", ""));
                 const auto link = makeLink(value);
                 content = {Cmd::Header, content.name, value, link};
                 m_links.push_back({content.name, value, m_line});
